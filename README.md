@@ -120,15 +120,23 @@ Failed items are `null` when `rejectOnPartialFail` is `false`.
   {
     "original": "Hello",
     "text": "Halo",
-    "from": { "language": { "iso": "en", "didYouMean": false }, "text": { "autoCorrected": false, "value": "", "didYouMean": false } }
+    "from": {
+      "language": { "iso": "en", "didYouMean": false },
+      "text": { "autoCorrected": false, "value": "", "didYouMean": false }
+    }
   },
   {
     "original": "Good morning",
-    "text": "Selamat pagi",
-    "from": { "language": { "iso": "en", "didYouMean": false }, "text": { "autoCorrected": false, "value": "", "didYouMean": false } }
+    "text": "おはようございます",
+    "from": {
+      "language": { "iso": "en", "didYouMean": false },
+      "text": { "autoCorrected": false, "value": "", "didYouMean": false }
+    }
   }
 ]
 ```
+
+> **`from.text.value`** hanya terisi ketika Google mendeteksi typo pada teks sumber. Kosong `""` adalah kondisi normal. Lihat bagian [Translation response fields](#translation-response-fields) untuk penjelasan lengkap.
 
 **Failure responses:**
 
@@ -171,15 +179,25 @@ Translate a keyed map of texts.
   "greeting": {
     "original": "Hello",
     "text": "Halo",
-    "from": { "language": { "iso": "en", "didYouMean": false }, "text": { "autoCorrected": false, "value": "", "didYouMean": false } }
+    "from": {
+      "language": { "iso": "en", "didYouMean": false },
+      "text": { "autoCorrected": false, "value": "", "didYouMean": false }
+    }
   },
   "farewell": {
     "original": "Goodbye",
-    "text": "Selamat tinggal",
-    "from": { "language": { "iso": "en", "didYouMean": false }, "text": { "autoCorrected": false, "value": "", "didYouMean": false } }
+    "text": "さようなら",
+    "from": {
+      "language": { "iso": "en", "didYouMean": false },
+      "text": { "autoCorrected": false, "value": "", "didYouMean": false }
+    }
   }
 }
 ```
+
+> **Catatan:** Urutan key di response tidak dijamin sama dengan urutan di request karena Go `map` tidak memiliki urutan. Gunakan key name untuk mengambil hasilnya, bukan posisi.
+
+> **`from.text.value`** hanya terisi ketika Google mendeteksi typo pada teks sumber. Kosong `""` adalah kondisi normal. Lihat bagian [Translation response fields](#translation-response-fields) untuk penjelasan lengkap.
 
 **Failure responses:**
 
