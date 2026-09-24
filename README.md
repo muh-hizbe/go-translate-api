@@ -71,6 +71,7 @@ Translate a single text string.
 
 ```json
 {
+  "original": "Hello, world!",
   "text": "Halo Dunia!",
   "pronunciation": null,
   "from": {
@@ -79,6 +80,19 @@ Translate a single text string.
   }
 }
 ```
+
+**Failure responses:**
+
+| Status | Condition | Error message |
+|---|---|---|
+| `400` | Body bukan JSON valid | `invalid request body: ...` |
+| `400` | Field `text` kosong atau tidak ada | `text is required` |
+| `400` | Field tidak dikenal di body (unknown field) | `invalid request body: json: unknown field "..."` |
+| `502` | Kode bahasa `from` atau `to` tidak dikenali dan `forceFrom`/`forceTo` tidak di-set | `from language "xx" is not supported; ...` |
+| `502` | Google Translate mengembalikan status HTTP non-200 | `batchTranslate: server returned 429 Too Many Requests ...` |
+| `502` | Koneksi ke Google Translate gagal (network error, timeout) | `batchTranslate: http: ...` |
+| `429` | Terlalu banyak request dari IP yang sama | `rate limit exceeded` |
+| `500` | Panic tak terduga di dalam handler | `internal server error` |
 
 ---
 
@@ -100,6 +114,37 @@ Translate multiple texts in one request.
 
 **Response `200`:** Array of translation objects in the same order.  
 Failed items are `null` when `rejectOnPartialFail` is `false`.
+
+```json
+[
+  {
+    "original": "Hello",
+    "text": "Halo",
+    "from": { "language": { "iso": "en", "didYouMean": false }, "text": { "autoCorrected": false, "value": "", "didYouMean": false } }
+  },
+  {
+    "original": "Good morning",
+    "text": "Selamat pagi",
+    "from": { "language": { "iso": "en", "didYouMean": false }, "text": { "autoCorrected": false, "value": "", "didYouMean": false } }
+  }
+]
+```
+
+**Failure responses:**
+
+| Status | Condition | Error message |
+|---|---|---|
+| `400` | Body bukan JSON valid | `invalid request body: ...` |
+| `400` | Array `queries` kosong atau tidak ada | `queries must not be empty` |
+| `400` | Field tidak dikenal di body | `invalid request body: json: unknown field "..."` |
+| `502` | Kode bahasa tidak dikenali di salah satu query (global atau per-item) | `from/to language "xx" is not supported; ...` |
+| `502` | Salah satu item ditolak Google dan `rejectOnPartialFail: true` (default) | `batchTranslate: partial failure at index N — item was rejected by the server ...` |
+| `502` | Google Translate mengembalikan status HTTP non-200 | `batchTranslate: server returned 429 Too Many Requests ...` |
+| `502` | Koneksi ke Google Translate gagal | `batchTranslate: http: ...` |
+| `429` | Rate limit terlampaui | `rate limit exceeded` |
+| `500` | Panic tak terduga | `internal server error` |
+
+> **Partial failure:** Jika `rejectOnPartialFail` di-set `false`, response tetap `200` tetapi item yang gagal menjadi `null` di dalam array hasil. Tidak ada error HTTP yang dikembalikan.
 
 ---
 
@@ -123,10 +168,34 @@ Translate a keyed map of texts.
 
 ```json
 {
-  "greeting": { "text": "Halo", ... },
-  "farewell":  { "text": "さようなら", ... }
+  "greeting": {
+    "original": "Hello",
+    "text": "Halo",
+    "from": { "language": { "iso": "en", "didYouMean": false }, "text": { "autoCorrected": false, "value": "", "didYouMean": false } }
+  },
+  "farewell": {
+    "original": "Goodbye",
+    "text": "Selamat tinggal",
+    "from": { "language": { "iso": "en", "didYouMean": false }, "text": { "autoCorrected": false, "value": "", "didYouMean": false } }
+  }
 }
 ```
+
+**Failure responses:**
+
+| Status | Condition | Error message |
+|---|---|---|
+| `400` | Body bukan JSON valid | `invalid request body: ...` |
+| `400` | Object `queries` kosong atau tidak ada | `queries must not be empty` |
+| `400` | Field tidak dikenal di body | `invalid request body: json: unknown field "..."` |
+| `502` | Kode bahasa tidak dikenali di salah satu entry | `from/to language "xx" is not supported; ...` |
+| `502` | Salah satu entry ditolak Google dan `rejectOnPartialFail: true` (default) | `batchTranslate: partial failure at index N — item was rejected by the server ...` |
+| `502` | Google Translate mengembalikan status HTTP non-200 | `batchTranslate: server returned 429 Too Many Requests ...` |
+| `502` | Koneksi ke Google Translate gagal | `batchTranslate: http: ...` |
+| `429` | Rate limit terlampaui | `rate limit exceeded` |
+| `500` | Panic tak terduga | `internal server error` |
+
+> **Partial failure:** Sama seperti `/translate/batch` — jika `rejectOnPartialFail: false`, response tetap `200` dengan value `null` untuk key yang gagal.
 
 ---
 
@@ -236,6 +305,61 @@ GET /languages/Indonesian
 | `forceBatch` | bool | `true` | Always use the batch endpoint |
 | `fallbackBatch` | bool | `true` | Fall back to batch if single endpoint fails |
 | `rejectOnPartialFail` | bool | `true` | Fail entire request if any batch item fails |
+
+---
+
+## Translation response fields
+
+Setiap objek hasil terjemahan dari `/translate`, `/translate/batch`, dan `/translate/map` memiliki field berikut:
+
+| Field | Type | Deskripsi |
+|---|---|---|
+| `original` | string | Teks asli yang dikirim dalam request, selalu terisi |
+| `text` | string | Hasil terjemahan |
+| `pronunciation` | string \| null | Panduan pelafalan / romanisasi (jika tersedia, selain itu tidak muncul) |
+| `from.language.iso` | string | Kode ISO bahasa sumber yang terdeteksi oleh Google |
+| `from.language.didYouMean` | bool | `true` jika bahasa yang terdeteksi berbeda dari nilai `from` yang dikirim |
+| `from.text.autoCorrected` | bool | `true` jika Google **diam-diam mengoreksi** typo dan menerjemahkan versi yang sudah diperbaiki (hanya terjadi bila `autoCorrect: true` dikirim) |
+| `from.text.didYouMean` | bool | `true` jika Google **mendeteksi typo** namun tidak mengoreksinya secara otomatis — koreksi hanya disarankan |
+| `from.text.value` | string | Teks sumber beserta saran koreksi dari Google. **Kosong `""` jika tidak ada typo.** Jika ada typo, kata yang disarankan untuk diganti dibungkus dengan `[...]`, contoh: `"I [have] a [dream]"`. Terisi ketika `autoCorrected: true` **atau** `didYouMean: true` |
+
+### Ilustrasi perilaku `from.text`
+
+**Tidak ada typo** — `value` selalu kosong:
+```json
+{
+  "original": "Hello world",
+  "text": "Halo dunia",
+  "from": {
+    "language": { "iso": "en", "didYouMean": false },
+    "text": { "autoCorrected": false, "value": "", "didYouMean": false }
+  }
+}
+```
+
+**Ada typo, `autoCorrect: false` (default)** — Google menyarankan koreksi tapi terjemahan tetap dari teks asli yang salah:
+```json
+{
+  "original": "I havv a dreeem",
+  "text": "Aku punya mimpi",
+  "from": {
+    "language": { "iso": "en", "didYouMean": false },
+    "text": { "autoCorrected": false, "value": "I [have] a [dream]", "didYouMean": true }
+  }
+}
+```
+
+**Ada typo, `autoCorrect: true`** — Google mengoreksi teks sebelum menerjemahkan:
+```json
+{
+  "original": "I havv a dreeem",
+  "text": "Saya punya mimpi",
+  "from": {
+    "language": { "iso": "en", "didYouMean": false },
+    "text": { "autoCorrected": true, "value": "I [have] a [dream]", "didYouMean": false }
+  }
+}
+```
 
 ---
 

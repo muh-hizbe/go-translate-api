@@ -57,6 +57,7 @@ func (o translateOptions) toGT(defaultTLD string) gt.Options {
 // -----------------------------------------------------------------
 
 type translationResponse struct {
+	Original      string              `json:"original"`
 	Text          string              `json:"text"`
 	Pronunciation *string             `json:"pronunciation,omitempty"`
 	From          translationFromInfo `json:"from"`
@@ -78,11 +79,12 @@ type translationTextInfo struct {
 	DidYouMean    bool   `json:"didYouMean"`
 }
 
-func resultToResponse(r *gt.TranslationResult) translationResponse {
+func resultToResponse(original string, r *gt.TranslationResult) translationResponse {
 	if r == nil {
-		return translationResponse{}
+		return translationResponse{Original: original}
 	}
 	return translationResponse{
+		Original:      original,
 		Text:          r.Text,
 		Pronunciation: r.Pronunciation,
 		From: translationFromInfo{
@@ -126,7 +128,7 @@ func Translate(defaultTLD string) http.HandlerFunc {
 			jsonError(w, err.Error(), http.StatusBadGateway)
 			return
 		}
-		jsonOK(w, resultToResponse(result))
+		jsonOK(w, resultToResponse(req.Text, result))
 	}
 }
 
@@ -194,7 +196,7 @@ func TranslateBatch(defaultTLD string) http.HandlerFunc {
 				out[i] = nil
 				continue
 			}
-			v := resultToResponse(res)
+			v := resultToResponse(queries[i].Text, res)
 			out[i] = &v
 		}
 		jsonOK(w, out)
@@ -256,7 +258,7 @@ func TranslateMap(defaultTLD string) http.HandlerFunc {
 				out[k] = nil
 				continue
 			}
-			v := resultToResponse(res)
+			v := resultToResponse(queries[k].Text, res)
 			out[k] = &v
 		}
 		jsonOK(w, out)
